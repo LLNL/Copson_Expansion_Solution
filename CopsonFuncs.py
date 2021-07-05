@@ -12,14 +12,14 @@ import numpy as np
 import scipy.optimize
 import math
 
-# c is the sound speed, normally set to 1.0
+# c is the sound speed of the homogeneoius half-space, normally set to 1.0
 # h is the thickness of the surface layer, normally set to 1.0
 
-# alpha and beta are the slopes of the x(r) curve
+# alpha and beta are the slopes of the x(r)/h curve at r=1.5c (x=0) and r=0 (x=h), respectively
 
 def evalPhi(r, alpha, beta, c, h):
     """
-    evaluate phi(r)
+    evaluate phi(r), equation 61
     """
     x = np.abs(r/c)  # This will ensure the function is even
     poly1 = 1.0 + x*x*( -2.0/3.0 + x*32.0/135.0)
@@ -35,7 +35,7 @@ def evalPhi(r, alpha, beta, c, h):
 
 def evalPhip(r, alpha, beta, c, h):
     """
-    evaluate first derivative of phi(r)
+    evaluate first derivative of phi(r), equation 64
     """
     x = np.abs(r/c)  # This will ensure the function is odd
     poly1 = 1.0 + x*x*( -(4.0/3.0) + x*16.0/27.0)
@@ -51,7 +51,7 @@ def evalPhip(r, alpha, beta, c, h):
 
 def evalPhi2p(r, alpha, beta, c, h):
     """
-    evaluate second derivative of phi(r)
+    evaluate second derivative of phi(r), equation 67
     """
     x = np.abs(r/c)  # This will ensure the function is even
     poly1 = 1.0 + x*x*( -4.0 + x*64.0/27.0)
@@ -67,7 +67,7 @@ def evalPhi2p(r, alpha, beta, c, h):
 
 def evalPhi3p(r, alpha, beta, c, h):
     """
-    evaluate third derivative of phi(r)
+    evaluate third derivative of phi(r), equation 70
     """
     x = np.abs(r/c)  # This will ensure the function is odd
     poly1 = x*(-2.0 + x*16.0/9.0)
@@ -83,7 +83,7 @@ def evalPhi3p(r, alpha, beta, c, h):
 
 def evalPhi4p(r, alpha, beta, c, h):
     """
-    evaluate fourth derivative of phi(r)
+    evaluate fourth derivative of phi(r), equation 71
     """
     x = np.abs(r/c)  # This will ensure the function is even
     poly1 =  1.0 - x*16.0/9.0
@@ -99,7 +99,7 @@ def evalPhi4p(r, alpha, beta, c, h):
 
 def evalPhi5p(r, alpha, beta, c, h):
     """
-    evaluate fourth derivative of phi(r)
+    evaluate fourth derivative of phi(r), equation 72
     """
     x = np.abs(r/c)  # This will ensure the function is odd
     result = (128.0/9.0)*(h/(c*c*c))* ( 2.0 + alpha + beta )
@@ -107,7 +107,8 @@ def evalPhi5p(r, alpha, beta, c, h):
 
 def TimeFirstStage(r, s, alpha, beta, c, h):
     """
-    evaluate time in Region 1 from r and s
+    evaluate time in Region 1 from r and s, equation 21
+    see equation 73 for case of s<0
     """
     # x = r/c
     t = ( 3*( evalPhi(r, alpha, beta, c, h) - evalPhi(s, alpha, beta, c, h) ) - 1.5*(r + s)*( evalPhip(r, alpha, beta, c, h) - evalPhip(s, alpha, beta, c, h) ) )/((r + s)**3 + 1.e-80)
@@ -115,19 +116,22 @@ def TimeFirstStage(r, s, alpha, beta, c, h):
 
 def reg2_xtRHS(s, alpha, beta, c, h):
     """
-    right hand side of x + ((4/3)s - c)t eqn
+    right hand side of x + ((4/3)s - c)t eqn 38
     """
     ss = s/c
     if s == -1.5*c:
+        #  equation 43
         value = evalPhi2p(s,alpha,beta,c,h)/2.0
     elif s < 0.:
         # when s < 0 the expression can be factored and you avoid the
         # difference of nearly equal numbers and dividing by a small number
+        # equation 75
         poly1 = -128.*ss**2 + 66.*ss + 27.
         poly2 = -32.*ss**2 - 6.*ss + 3.
         poly3 = 128.*ss**3 + 36.*ss*ss - 36.*ss + 27
-        value = (1.5*c + ss + 1e-20)*( poly1 + 2.*alpha*poly2)/135. - beta*poly3/270.
+        value = h*((1.5*c + ss + 1e-20)*( poly1 + 2.*alpha*poly2)/135. - beta*poly3/270.)
     else:
+        # equation 38
         value = evalPhip(s,alpha,beta,c,h)/(1.5*c + s + 1e-20) + (evalPhi(1.5*c,alpha,beta,c,h) - evalPhi(s,alpha,beta,c,h))/(1.5*c + s + 1e-20)**2
     return value
 
@@ -141,40 +145,41 @@ def S_from_XT_reg2(s, x, t, alpha, beta, c, h):
 
 def reg1_t(r, s, alpha, beta, c, h):
     """
-    evaluate (2/3)t in region 1
+    evaluate (2/3)t in region 1, equation 21
     """
     # when s < 0 the expression can be factored and you avoid the
-    # difference of nearly equal numbers and dividing by a small number
+    # difference of nearly equal numbers and dividing by a small number, equation 73
     rr = r/c
     ss = s/c
 
     poly1 = rr - ss
     poly2 = rr*rr - (4.0/3.0)*rr*ss + ss*ss
     poly3 = 4.0*rr**3 - 3.0*rr*rr*ss + 2.0*rr*ss*ss - ss**3
-    value = np.where(s <= 0., (4./3.)*(poly1 - (8./15.)*poly2) - (4./9.)*alpha*(1. - 2.*poly1 + (4./5.)*poly2) + (4./9.)*beta*(poly1 - (4./5.)*poly2), 
+    value = np.where(s <= 0., (h/c)*((4./3.)*(poly1 - (8./15.)*poly2) - (4./9.)*alpha*(1. - 2.*poly1 + (4./5.)*poly2) + (4./9.)*beta*(poly1 - (4./5.)*poly2)), 
                             (2.0*(evalPhi(r, alpha, beta, c, h) - evalPhi(s, alpha, beta, c, h)) - (r + s)*(evalPhip(r, alpha, beta, c, h) - evalPhip(s, alpha, beta, c, h)))/(r + s + 1e-20)**3)
 
     return value
 
 def reg1_r_characteristic(r, s, alpha, beta, c, h):
     """
-    evaluate x - ((4/3)r - (2/3)s)t in region 1
+    evaluate x - ((4/3)r - (2/3)s)t in region 1, equation 19
     """
     # when s < 0 the expression can be factored and you avoid the
     # difference of nearly equal numbers and dividing by a small number
+    #  equation 74
     rr = r/c
     ss = s/c
 
     poly1 = 2.0*rr - ss
     poly2 = 3.0*rr*rr - 2.0*rr*ss + ss*ss
     poly3 = 4.0*rr**3 - 3.0*rr*rr*ss + 2.0*rr*ss*ss - ss**3
-    value = np.where(s <= 0., 1.0 - (2./3.)*poly2 + (32./135.)*poly3 + (4./9.)*alpha*(poly1 - poly2 + (4./15.)*poly3) - (2./9.)*beta*(poly2 - (8./15.)*poly3),
+    value = np.where(s <= 0., h*(1.0 - (2./3.)*poly2 + (32./135.)*poly3 + (4./9.)*alpha*(poly1 - poly2 + (4./15.)*poly3) - (2./9.)*beta*(poly2 - (8./15.)*poly3)),
                               evalPhip(r,alpha,beta,c,h)/(r + s + 1e-20) - (evalPhi(r,alpha,beta,c,h) - evalPhi(s,alpha,beta,c,h))/(r + s + 1e-20)**2 )
     return value
 
 def reg1_s_characteristic(r, s, alpha, beta, c, h):
     """
-    evaluate x + ((4/3)s - (2/3)r)t in region 1
+    evaluate x + ((4/3)s - (2/3)r)t in region 1, equation 20
     """
     # when s < 0 the expression can be factored and you avoid the
     # difference of nearly equal numbers and dividing by a small number
@@ -191,6 +196,7 @@ def reg1_s_characteristic(r, s, alpha, beta, c, h):
 def SXT2(s, t, alpha, beta, c, h):
     """
     find s from t at boundary of region 1 and 2
+    iterate on s until this function returns zero
     """
     rhs = reg1_t(1.5*c, s, alpha, beta, c, h)
     value = -2.0*t/3.0 + rhs
@@ -199,6 +205,7 @@ def SXT2(s, t, alpha, beta, c, h):
 def RS_fromXTreg1((r, s), x, t, alpha, beta, c, h):
     """
     Evaluate equations whose roots will give r and s from x and t
+    iterate on r,s to get both value1 and value2 to zero.
     """
     value1 = x - (4./3.*r - 2./3.*s)*t - reg1_r_characteristic(r, s, alpha, beta, c, h)
     value2 = 2.0*t/3.0 - reg1_t(r, s, alpha, beta, c, h)
@@ -210,8 +217,9 @@ def FreeSurface_S(t, alpha, beta, c, h):
     This is the negative of the r value
     """
     # time free surface starts moving (r = 0 characteristic reaches surface)
+    # from equation 73 with r=s=0
     time1 = (-2.0*alpha/3.0)*h/c
-    # time region 2 reaches free surface
+    # time region 2 reaches free surface, eqn 44, 70
     time2 = -2.0*h*(1 + alpha/3.0 + beta)/c
     # find minimum possible s value from free surface value
     # if time after when region 2 hits the surface limit is -1.5*c
@@ -221,7 +229,7 @@ def FreeSurface_S(t, alpha, beta, c, h):
     elif t <= time1:
         Smin = 0.0 
     else:
-        # solve the quadratic from -0.25*phi(iii)(r) = t for -r = s
+        # solve the quadratic from -0.25*phi(iii)(r) = t for -r = s, eqn 29, 70
         A = 8.0*(2 + alpha + beta)/9.0
         B = -2.0*(3.0 + 2.0*alpha + beta)/3.0
         C = alpha/3.0 + 0.5*c*t/h
@@ -250,13 +258,6 @@ def RHS(x, t, alpha, beta, c, h):
     s = scipy.optimize.brentq(S_from_XT_reg2, Smin, 1.5*c, args=(x, t, alpha, beta, c, h)) # for alpha=0 , beta= -3
     #print (" x, t, s ", x[0] , "  ", t, "  ", s)
     return 2.0*c - (2.0*s/3.0)
-
-def velocity(x, t, alpha, beta, c, h):
-    """
-    find the particle velocity at x and t
-    """
-    r, s = xt2rs(x, t, alpha, beta, c, h)
-    return r - s
 
 def xt2rs(x, t, alpha, beta, c, h):
     """
@@ -391,12 +392,36 @@ def cubic_roots(b0,b1,b2,b3):
             roots.append(-R*(math.cos(theta) - math.sqrt(3.)*math.sin(theta)) - a2/3.0)
     return (num_roots,roots)
 
-def setdensityEmat(x):
+def velocity(x, t, alpha, beta, c, h):
+    """
+    find the particle velocity at x and t
+    """
+    r, s = xt2rs(x, t, alpha, beta, c, h)
+    return r - s
+
+def density(x, t, alpha, beta, c, h, k=1):
+    """
+    find the fluid density at x and t
+    """
+    r, s = xt2rs(x, t, alpha, beta, c, h)
+    cs = (r + s)/3.0
+    return (0.6/k)**1.5*c**3
+
+def pressure(x, t, alpha, beta, c, h, k=1):
+    """
+    find the fluid pressure at x and t
+    """
+    r, s = xt2rs(x, t, alpha, beta, c, h)
+    cs = (r + s)/3.0
+    return k*(0.6/k)**2.5 * c**5
+
+def setdensityEmat(x, alpha, beta, c, h):
     """
     This function will return the density and energy per volume
-    for the coordinate given.
+    for the coordinate given and the values of alpha, beta, c, h.
     """
-    num_roots, roots = cubic_roots(1.0 - x, 2.0/3.0*alpha, -4.0/9.0*(3. + 2.*alpha + beta ), 8./27*(2. + alpha + beta) )
+    # find solutions to equation 54 for (r/c), equation 77
+    num_roots, roots = cubic_roots(1.0 - (x/h), 2.0/3.0*alpha, -4.0/9.0*(3. + 2.*alpha + beta ), 8./27*(2. + alpha + beta) )
     R = 0
     count = 0
     for i in range(num_roots):
@@ -404,9 +429,9 @@ def setdensityEmat(x):
             R = roots[i]
             count = count + 1
     #print count
-    cs = 2.0*R/3.0 # sound speed
-    den = cs*cs*cs
-    emat = 0.9*cs*cs
+    cs = 2.0*R*c/3.0    # sound speed
+    den = cs*cs*cs      # density
+    emat = 0.9*cs*cs    # specific internal energy 
     return (den, emat)
 
 
