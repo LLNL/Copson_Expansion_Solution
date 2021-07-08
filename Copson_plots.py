@@ -14,8 +14,7 @@ import numpy as np
 import scipy.optimize
 import scipy.integrate
 import math
-# from CopsonFuncs import *
-from CopsonFuncs_mod1 import *
+from CopsonFuncs import *
 
 def makePlot(alpha, beta, FinalTime, filename):
    """
@@ -223,4 +222,9 @@ alpha = -0.0
 beta = -3.0
 
 makePlot(alpha,beta, 3.0, "Char_A0.0B3.0.pdf")
+
+alpha = -1.0
+beta = -1.0
+
+makePlot(alpha,beta, 3.0, "Char_A1.0B1.0.pdf")
 quit()
