@@ -12,7 +12,7 @@ import numpy as np
 import scipy.optimize
 import math
 
-# c is the sound speed of the homogeneoius half-space, normally set to 1.0
+# c is the sound speed of the homogeneous half-space, normally set to 1.0
 # h is the thickness of the surface layer, normally set to 1.0
 
 # alpha and beta are the slopes of the x(r)/h curve at r=1.5c (x=0) and r=0 (x=h), respectively
