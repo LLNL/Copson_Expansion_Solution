@@ -399,7 +399,15 @@ def velocity(x, t, alpha, beta, c, h):
     r, s = xt2rs(x, t, alpha, beta, c, h)
     return r - s
 
-def density(x, t, alpha, beta, c, h, k=1):
+def emat(x, t, alpha, beta, c, h):
+    """
+    find the fluid specific internal energy at x and t
+    """
+    r, s = xt2rs(x, t, alpha, beta, c, h)
+    cs = (r + s)/3.0
+    return 0.9*cs*cs
+
+def density(x, t, alpha, beta, c, h, k=0.6):
     """
     find the fluid density at x and t
     """
@@ -407,7 +415,7 @@ def density(x, t, alpha, beta, c, h, k=1):
     cs = (r + s)/3.0
     return (0.6/k)**1.5*c**3
 
-def pressure(x, t, alpha, beta, c, h, k=1):
+def pressure(x, t, alpha, beta, c, h, k=0.6):
     """
     find the fluid pressure at x and t
     """
