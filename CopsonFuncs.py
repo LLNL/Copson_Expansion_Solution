@@ -25,7 +25,7 @@ def evalPhi(r, alpha, beta, c, h):
     poly1 = 1.0 + x*x*( -2.0/3.0 + x*32.0/135.0)
     poly2 = 1.0 + x*( -1.0 + x*4.0/15.0)
     poly3 = 1.0 - x*8.0/15.0
-
+    
     alpha49 = (4.0/9.0)*alpha
     beta29  = (2.0/9.0)*beta
     
@@ -44,7 +44,7 @@ def evalPhip(r, alpha, beta, c, h):
     
     alpha23 = (2.0/3.0)*alpha
     beta49  = (4.0/9.0)*beta
-
+    
     # result = 2.0*h*r* ( poly1 + (2.0/3.0)*x*poly2*alpha - (4.0/9.0)*x*x*poly3*beta )
     result = 2.0*h*r* ( 1.0 + x*( alpha23 + x*( -4.0/3.0 - (4.0/3.0)*alpha23 - beta49 + x*(2.0/3.0)*( 8.0/9.0 + (2.0/3.0)*alpha23 + beta49 ) ) ) )
     return result
@@ -60,7 +60,7 @@ def evalPhi2p(r, alpha, beta, c, h):
     
     alpha43 = (4.0/3.0)*alpha
     beta43  = (4.0/3.0)*beta
-
+    
     # result = 2.0*h* ( poly1 + (4.0/3.0)*x*poly2*alpha - (4.0/3.0)*x*x*poly3*beta )
     result = 2.0*h* ( 1.0 + x*( alpha43 + x*( -4.0 - 2.0*alpha43 - beta43 + x*(8.0/9.0)*( 8.0/3.0 + alpha43 + beta43 ) ) ) )
     return result
@@ -76,7 +76,7 @@ def evalPhi3p(r, alpha, beta, c, h):
     
     alpha13 = (1.0/3.0)*alpha
     beta23  = (2.0/3.0)*beta
-
+    
     # result = 8.0*(h/c)* ( poly1 + (1.0/3.0)*poly2*alpha - (2.0/3.0)*x*poly3*beta )
     result = 8.0*(h/c)* ( alpha13 + x*( -2.0 - 4.0*alpha13 - beta23 + x*(4.0/3.0)*( 4.0/3.0 + 2.0*alpha13 + beta23 ) ) )
     return result*r/(np.abs(r) + 1e-80)  # This will ensure the function is odd
@@ -92,7 +92,7 @@ def evalPhi4p(r, alpha, beta, c, h):
     
     alpha13 = (2.0/3.0)*alpha
     beta13  = (1.0/3.0)*beta
-
+    
     # result = 8.0*(h/(c*c))* ( poly1 + (1.0/3.0)*poly2*alpha - (1.0/3.0)*poly3*beta )
     result = -16.0*(h/(c*c))* ( poly1 + alpha13*poly2 + beta13*poly3 )
     return result
@@ -140,7 +140,7 @@ def S_from_XT_reg2(s, x, t, alpha, beta, c, h):
     find s from x,t in region 2
     """
     value = x - c*t + 4./3.*s*t - reg2_xtRHS(s,alpha,beta,c,h)
-
+    
     return value
 
 def reg1_t(r, s, alpha, beta, c, h):
@@ -151,13 +151,13 @@ def reg1_t(r, s, alpha, beta, c, h):
     # difference of nearly equal numbers and dividing by a small number, equation 73
     rr = r/c
     ss = s/c
-
+    
     poly1 = rr - ss
     poly2 = rr*rr - (4.0/3.0)*rr*ss + ss*ss
-    poly3 = 4.0*rr**3 - 3.0*rr*rr*ss + 2.0*rr*ss*ss - ss**3
+    # poly3 = 4.0*rr**3 - 3.0*rr*rr*ss + 2.0*rr*ss*ss - ss**3
     value = np.where(s <= 0., (h/c)*((4./3.)*(poly1 - (8./15.)*poly2) - (4./9.)*alpha*(1. - 2.*poly1 + (4./5.)*poly2) + (4./9.)*beta*(poly1 - (4./5.)*poly2)), 
                             (2.0*(evalPhi(r, alpha, beta, c, h) - evalPhi(s, alpha, beta, c, h)) - (r + s)*(evalPhip(r, alpha, beta, c, h) - evalPhip(s, alpha, beta, c, h)))/(r + s + 1e-20)**3)
-
+    
     return value
 
 def reg1_r_characteristic(r, s, alpha, beta, c, h):
@@ -169,7 +169,7 @@ def reg1_r_characteristic(r, s, alpha, beta, c, h):
     #  equation 74
     rr = r/c
     ss = s/c
-
+    
     poly1 = 2.0*rr - ss
     poly2 = 3.0*rr*rr - 2.0*rr*ss + ss*ss
     poly3 = 4.0*rr**3 - 3.0*rr*rr*ss + 2.0*rr*ss*ss - ss**3
@@ -185,7 +185,7 @@ def reg1_s_characteristic(r, s, alpha, beta, c, h):
     # difference of nearly equal numbers and dividing by a small number
     rr = r/c
     ss = s/c
-
+    
     poly1 = rr - 2.0*ss
     poly2 = rr*rr - 2.0*rr*ss + 3.0*ss*ss
     poly3 = rr**3 - 2.0*rr*rr*ss + 3.0*rr*ss*ss - 4.0*ss**3
@@ -202,11 +202,13 @@ def SXT2(s, t, alpha, beta, c, h):
     value = -2.0*t/3.0 + rhs
     return value
 
-def RS_fromXTreg1((r, s), x, t, alpha, beta, c, h):
+def RS_fromXTreg1(rs, x, t, alpha, beta, c, h):
     """
     Evaluate equations whose roots will give r and s from x and t
     iterate on r,s to get both value1 and value2 to zero.
     """
+    r = rs[0]
+    s = rs[1]
     value1 = x - (4./3.*r - 2./3.*s)*t - reg1_r_characteristic(r, s, alpha, beta, c, h)
     value2 = 2.0*t/3.0 - reg1_t(r, s, alpha, beta, c, h)
     return [value1, value2]
@@ -240,7 +242,7 @@ def FreeSurface_S(t, alpha, beta, c, h):
         else:
             disc = B*B - 4.0*A*C
             if disc < 0.0:
-                print "error finding surface value of r"
+                print("error finding surface value of r")
                 Smin = -1.5*c
             else:
                 Smin = -(-B - math.sqrt(disc))/(2.0*A)
@@ -254,9 +256,9 @@ def RHS(x, t, alpha, beta, c, h):
     and the interface between Region 2 and 3
     """
     Smin = FreeSurface_S(t, alpha, beta, c, h)
-    #print " alpha, beta, t, a, b, c, disc, Smin, Smax", alpha, "  ", beta, "  ", t, "  ",  A, "  ", B, "  ", C, "  ", disc, "  ", Smin, "  ", -(-B + math.sqrt(disc))/(2.0*A)
+    # print " alpha, beta, t, a, b, c, disc, Smin, Smax", alpha, "  ", beta, "  ", t, "  ",  A, "  ", B, "  ", C, "  ", disc, "  ", Smin, "  ", -(-B + math.sqrt(disc))/(2.0*A)
     s = scipy.optimize.brentq(S_from_XT_reg2, Smin, 1.5*c, args=(x, t, alpha, beta, c, h)) # for alpha=0 , beta= -3
-    #print (" x, t, s ", x[0] , "  ", t, "  ", s)
+    # print (" x, t, s ", x[0] , "  ", t, "  ", s)
     return 2.0*c - (2.0*s/3.0)
 
 def xt2rs(x, t, alpha, beta, c, h):
@@ -270,7 +272,7 @@ def xt2rs(x, t, alpha, beta, c, h):
  
     # find x position of free surface at time t (r1 = -Smin)
     x1 = -2.0*Smin*t + 0.5*evalPhi2p(-Smin,alpha,beta,c,h)
- 
+    
     # find s value at region1/ region 2 boundary at time t
     if t > time2:
         # in this case Region 2 extends to the free surface, s2 must be -1.5*c
@@ -288,7 +290,7 @@ def xt2rs(x, t, alpha, beta, c, h):
         # In region 3, initial conditions still hold
         r = 1.5*c
         s = 1.5*c
-    elif (x > x1):
+    elif (x >= x1):
         # outside free surface, set values to the free surface at this time
         r = -Smin
         s =  Smin
@@ -299,11 +301,35 @@ def xt2rs(x, t, alpha, beta, c, h):
     else:
         # find r and s in region 1
         # get initial guess from bounding values, (r,s) is (-Smin, Smin) at x1, (1.5*c, s2) at x2
-        R_init = 1.5*c + (-Smin - 1.5*c)*(x - x2)/(x1 - x2)
-        S_init = s2 + (Smin - s2)*(x - x2)/(x1 - x2)
-        sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h))
+        R_init = -Smin + (1.5*c + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
+        S_init =  Smin + (s2 + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
+        # print("R_init, S_init ", R_init, S_init)
+        sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+        # print("reg 1: sol", sol)
+        if sol.success == False:
+            R_init = -Smin + (1.5*c + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
+            S_init = s2 + (Smin - s2)*(x - x2)/(x1 - x2)
+            # print("R_init, S_init ", R_init, S_init)
+            sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+            # print("reg 1: sol", sol)
+            if sol.success == False:
+                R_init = 1.5*c + (-Smin - 1.5*c)*(x - x2)/(x1 - x2)
+                S_init = Smin + (s2 + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
+                # print("R_init, S_init ", R_init, S_init)
+                sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                # print("reg 1: sol", sol)
+                if sol.success == False:
+                    # print("xt2rs: failed to converge for x = %g, t = %g"%(x,t))
+                    R_init = 1.5*c + (-Smin - 1.5*c)*(x - x2)/(x1 - x2)
+                    S_init = s2 + (Smin - s2)*(x - x2)/(x1 - x2)
+                    # print("R_init, S_init ", R_init, S_init)
+                    sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                    # print("reg 1: sol", sol)
+                    if sol.success == False:
+                        print("xt2rs: failed to converge for x = %g, t = %g"%(x,t))
         r = sol.x[0]
         s = sol.x[1]
+    
     return r, s
 
 def cubic_roots(b0,b1,b2,b3):
@@ -342,7 +368,7 @@ def cubic_roots(b0,b1,b2,b3):
         
         q = a1/3.0 - a2*a2/9.0
         r3 = (a1*a2 - 3.0*a0)/6.0 - a2*a2*a2/27.0
-
+        
         # print " q, r3  ", q, r3
         
         discriminant = q*q*q + r3*r3
