@@ -10,6 +10,7 @@
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
+from matplotlib.ticker import (AutoMinorLocator)
 import numpy as np
 import scipy.optimize
 import scipy.integrate
@@ -43,13 +44,12 @@ def makePlot(alpha, beta, FinalTime, filename):
    bndy_xvals = np.append(bndy_xvals, x2)
    
    # start the plot
-   plt.figure(1, figsize=(5,3.75)) #(6.0, 4.5)
-   plt.figure(2, figsize=(5,3.75))
+   plt.figure(num=1, figsize=(5,3.75)) #(6.0, 4.5)
+   plt.figure(num=2, figsize=(5,3.75))
 
+   plt.figure(num=1)
    # put at end so it is on top
-   plt.plot(bndy_time, bndy_xvals, color='g', lw=2.0)
-
-   plt.figure(1)
+   # plt.plot(bndy_time, bndy_xvals, color='g', lw=2.0)
 
    # initial values of r to start characteristics at
    rvals = np.linspace(0.0, 1.5, num=N+1)
@@ -74,7 +74,7 @@ def makePlot(alpha, beta, FinalTime, filename):
       rvals = np.linspace(r, 1.5, num=N2)
 
       stime = 1.5*reg1_t(rvals, s, alpha, beta, 1.0, 1.0)
-      sxvals = reg1_r_characteristic(rvals, s, alpha, beta, 1.0, 1.0) + (2.0/3.0)*( 2*rvals - s )*stime
+      sxvals = reg1_s_characteristic(rvals, s, alpha, beta, 1.0, 1.0) - (2.0/3.0)*( 2*s - rvals )*stime
       
       # extend s characteristic in region 2 with straight line since r is constant in region 2
       rbnd = 1.5
@@ -100,12 +100,12 @@ def makePlot(alpha, beta, FinalTime, filename):
 
    # s characteristics starting at surface as reflection of an r characteristic
    rvals = np.linspace(0.0, 1.5, num=N+1)
-   for i in range(2): #range(N-1):
+   for i in range(5): #range(N-1):
       s = -rvals[i]
       rvallist = np.linspace(rvals[i], 1.5, num=N2)
 
       stime = 1.5*reg1_t(rvallist, s, alpha, beta, 1.0, 1.0)
-      sxvals = reg1_r_characteristic(rvallist, s, alpha, beta, 1.0, 1.0) + (4./3.*rvallist - 2./3.*s)*stime
+      sxvals = reg1_s_characteristic(rvallist, s, alpha, beta, 1.0, 1.0) - (2.0/3.0)*( 2*s - rvallist )*stime
 
       slope = -4.*s/3. + 1.0
       x2 = sxvals[-1] + slope*(FinalTime - stime[-1])
@@ -138,8 +138,8 @@ def makePlot(alpha, beta, FinalTime, filename):
    
    # add r characteristics in the second layer, they start in the stationary gas
    # first in unmoving material
-   xinit = np.linspace(0, LowerX, num=3*N/2)
-   for i in range(1,3*N/2):
+   xinit = np.linspace(0, 2*LowerX, num=3*N)
+   for i in range(1,3*N - 1):
       # first do the part in the stationary gas, a straight line
       Xfinal = 0.5*xinit[i]
       Tfinal = -0.5*xinit[i]
@@ -157,15 +157,50 @@ def makePlot(alpha, beta, FinalTime, filename):
 
    plt.plot(bndy_time, bndy_xvals, color='g', lw=2.0) # add surface at end so it is on top
 
-   plt.xlabel('time')
-   plt.ylabel('position')
+   plt.xlabel(r'$t\ (a/h)$')
+   plt.ylabel(r'$x/h$')
    plt.xlim((0.,FinalTime))
    plt.ylim((LowerX,bndy_xvals[-1]))
-   plt.title( r'Characteristics ($\alpha = $%0.3f, $\beta =$ %0.3f)' % (alpha, beta))
-   #plt.title( r'Characteristics ($\alpha = \frac{1}{3},\ \beta = \frac{17}{9}$)' )
+   fractionA = False
+   fractionB = False
+   if (abs(-3*alpha - int(-3*alpha+0.5)) < 0.001):
+      fractionA = True
+      alphaDenom = 3
+      alphaNum = int(-3*alpha+0.5)
+   elif (abs(-9*alpha - int(-9*alpha+0.5)) < 0.001):
+      fractionA = True
+      alphaDenom = 9
+      alphaNum = int(-9*alpha+0.5)
+   
+   if (abs(-3*beta - int(-3*beta+0.5)) < 0.001):
+      fractionB = True
+      betaDenom = 3
+      betaNum = int(-3*beta+0.5)
+   elif (abs(-9*beta - int(-9*beta+0.5)) < 0.001):
+      fractionB = True
+      betaDenom = 9
+      betaNum = int(-9*beta+0.5)
+
+   if fractionA and fractionB:
+      if alphaNum == 0:
+         plt.title( r'$\alpha = %d$, $\beta = -\frac{%d}{%d}$' % (alphaNum, betaNum, betaDenom))
+      else:
+         plt.title( r'$\alpha = -\frac{%d}{%d}$, $\beta = -\frac{%d}{%d}$' % (alphaNum, alphaDenom, betaNum, betaDenom))
+   elif fractionA:
+      if alphaNum == 0:
+         plt.title( r'$\alpha = %d$, $\beta = $ %0.3f' % (alphaNum, beta))
+      else:
+         plt.title( r'$\alpha = -\frac{%d}{%d}$, $\beta = $ %0.3f' % (alphaNum, alphaDenom, beta))
+   elif fractionB:
+      plt.title( r'$\alpha = $ %0.3f, $\beta = -\frac{%d}{%d}$' % (alpha, betaNum, betaDenom))
+   else:
+      plt.title( r'$\alpha = $%0.3f, $\beta =$ %0.3f' % (alpha, beta))
+   # plt.title( r'Characteristics ($\alpha = $%0.3f, $\beta =$ %0.3f)' % (alpha, beta))
    ax = plt.gca()
    ttl = ax.title
    ttl.set_position([.5, 1.025])
+   ax.xaxis.set_minor_locator(AutoMinorLocator())
+   ax.yaxis.set_minor_locator(AutoMinorLocator())
 
    #plt.grid(True)
    plt.tight_layout()
@@ -193,15 +228,30 @@ def makePlot(alpha, beta, FinalTime, filename):
       Stream_xvals = scipy.integrate.odeint(velocity, y0, Stream_times, args=(alpha, beta, 1.0,1.0))
       plt.figure(2)
       plt.plot(Stream_times, Stream_xvals, lw=width)
-   plt.xlabel('time')
-   plt.ylabel('position')
+   plt.xlabel(r'$t\ (a/h)$')
+   plt.ylabel(r'$x/h$')
    plt.xlim((0.,FinalTime))
    plt.ylim((LowerX,bndy_xvals[-1]))
-   plt.title( r'Streamlines ($\alpha = $%0.3f, $\beta =$ %0.3f)' % (alpha, beta))
-   #plt.title( r'Characteristics ($\alpha = \frac{1}{3},\ \beta = \frac{17}{9}$)' )
+   if fractionA and fractionB:
+      if alphaNum == 0:
+         plt.title( r'Streamlines ($\alpha = %d$, $\beta = -\frac{%d}{%d}$)' % (alphaNum, betaNum, betaDenom))
+      else:
+         plt.title( r'Streamlines ($\alpha = -\frac{%d}{%d}$, $\beta = -\frac{%d}{%d}$)' % (alphaNum, alphaDenom, betaNum, betaDenom))
+   elif fractionA:
+      if alphaNum == 0:
+         plt.title( r'Streamlines ($\alpha = %d$, $\beta = $ %0.3f)' % (alphaNum, beta))
+      else:
+         plt.title( r'Streamlines ($\alpha = -\frac{%d}{%d}$, $\beta = $ %0.3f)' % (alphaNum, alphaDenom, beta))
+   elif fractionB:
+      plt.title( r'Streamlines ($\alpha = $ %0.3f, $\beta = -\frac{%d}{%d}$)' % (alpha, betaNum, betaDenom))
+   else:
+      plt.title( r'Streamlines ($\alpha = $%0.3f, $\beta =$ %0.3f)' % (alpha, beta))
+   # plt.title( r'Streamlines ($\alpha = $%0.3f, $\beta =$ %0.3f)' % (alpha, beta))
    ax = plt.gca()
    ttl = ax.title
    ttl.set_position([.5, 1.025])
+   ax.xaxis.set_minor_locator(AutoMinorLocator())
+   ax.yaxis.set_minor_locator(AutoMinorLocator())
    plt.tight_layout()
    name = filename[0:-4]+"streamline"+filename[-4:]
    plt.savefig(name, format="pdf", dpi=1200)
@@ -214,17 +264,17 @@ beta  = -17.0/9.0
 makePlot(alpha,beta, 2.0, "Char_test_A0.333_B1.889.pdf")
 # quit()
 alpha = -0.
-beta = -1.6666
+beta = -1.7
 
-makePlot(alpha,beta, 3.0, "Char_A0.0B1.67.pdf")
+makePlot(alpha,beta, 3.0, "Char_A0.0_B1.7.pdf")
 
 alpha = -0.0
-beta = -3.0
+beta = -2.95
 
-makePlot(alpha,beta, 3.0, "Char_A0.0B3.0.pdf")
+makePlot(alpha,beta, 3.0, "Char_A0.0_B2.95.pdf")
 
-alpha = -1.0
-beta = -1.0
+alpha = -0.95
+beta = -1.05
 
-makePlot(alpha,beta, 3.0, "Char_A1.0B1.0.pdf")
+makePlot(alpha,beta, 3.0, "Char_A0.95_B1.0.pdf")
 quit()
