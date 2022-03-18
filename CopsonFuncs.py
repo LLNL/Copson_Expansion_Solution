@@ -14,6 +14,7 @@ import math
 
 # c is the sound speed of the homogeneous half-space, normally set to 1.0
 # h is the thickness of the surface layer, normally set to 1.0
+global rinit, sinit
 
 # alpha and beta are the slopes of the x(r)/h curve at r=1.5c (x=0) and r=0 (x=h), respectively
 
@@ -154,11 +155,34 @@ def reg1_t(r, s, alpha, beta, c, h):
     
     poly1 = rr - ss
     poly2 = rr*rr - (4.0/3.0)*rr*ss + ss*ss
+
     # poly3 = 4.0*rr**3 - 3.0*rr*rr*ss + 2.0*rr*ss*ss - ss**3
     value = np.where(s <= 0., (h/c)*((4./3.)*(poly1 - (8./15.)*poly2) - (4./9.)*alpha*(1. - 2.*poly1 + (4./5.)*poly2) + (4./9.)*beta*(poly1 - (4./5.)*poly2)), 
-                            (2.0*(evalPhi(r, alpha, beta, c, h) - evalPhi(s, alpha, beta, c, h)) - (r + s)*(evalPhip(r, alpha, beta, c, h) - evalPhip(s, alpha, beta, c, h)))/(r + s + 1e-20)**3)
+                            (2.0*(evalPhi(r, alpha, beta, c, h) - evalPhi(s, alpha, beta, c, h))/(r + s + 1e-20)**3 - (evalPhip(r, alpha, beta, c, h) - evalPhip(s, alpha, beta, c, h))/(r + s + 1e-20)**2))
     
     return value
+
+def reg1_t_der(r, s, alpha, beta, c, h):
+    """
+    evaluate (2/3)t in region 1, equation 21
+    """
+    # when s < 0 the expression can be factored and you avoid the
+    # difference of nearly equal numbers and dividing by a small number, equation 73
+    rr = r/c
+    ss = s/c
+    
+    poly1_r =  1.0
+    poly1_s = -1.0
+    poly2_r = 2.0*rr - (4.0/3.0)*ss
+    poly2_s = -(4.0/3.0)*rr + 2.0*ss
+    
+    # poly3 = 4.0*rr**3 - 3.0*rr*rr*ss + 2.0*rr*ss*ss - ss**3
+    der_r = np.where(s <= 0., (h/c)*((4./3.)*(poly1_r - (8./15.)*poly2_r) - (4./9.)*alpha*(-2.*poly1_r + (4./5.)*poly2_r) + (4./9.)*beta*(poly1_r - (4./5.)*poly2_r)), 
+                            (2.0*(2.0*evalPhip(r, alpha, beta, c, h) - evalPhip(s, alpha, beta, c, h))/(r + s + 1e-20)**3 - 6.0*(evalPhi(r, alpha, beta, c, h) - evalPhi(s, alpha, beta, c, h))/(r + s + 1e-20)**4 - evalPhi2p(r, alpha, beta, c, h)/(r + s + 1e-20)**2))
+    der_s = np.where(s <= 0., (h/c)*((4./3.)*(poly1_s - (8./15.)*poly2_s) - (4./9.)*alpha*(-2.*poly1_s + (4./5.)*poly2_s) + (4./9.)*beta*(poly1_s - (4./5.)*poly2_s)), 
+                            (2.0*(evalPhip(r, alpha, beta, c, h) - 2.0*evalPhi(s, alpha, beta, c, h))/(r + s + 1e-20)**3 - 6.0*(evalPhi(r, alpha, beta, c, h) - evalPhi(s, alpha, beta, c, h))/(r + s + 1e-20)**4 + evalPhi2p(s, alpha, beta, c, h)/(r + s + 1e-20)**2))
+    
+    return (der_r, der_s)
 
 def reg1_r_characteristic(r, s, alpha, beta, c, h):
     """
@@ -176,6 +200,28 @@ def reg1_r_characteristic(r, s, alpha, beta, c, h):
     value = np.where(s <= 0., h*(1.0 - (2./3.)*poly2 + (32./135.)*poly3 + (4./9.)*alpha*(poly1 - poly2 + (4./15.)*poly3) - (2./9.)*beta*(poly2 - (8./15.)*poly3)),
                               evalPhip(r,alpha,beta,c,h)/(r + s + 1e-20) - (evalPhi(r,alpha,beta,c,h) - evalPhi(s,alpha,beta,c,h))/(r + s + 1e-20)**2 )
     return value
+
+def reg1_r_characteristic_der(r, s, alpha, beta, c, h):
+    """
+    evaluate x - ((4/3)r - (2/3)s)t in region 1, equation 19
+    """
+    # when s < 0 the expression can be factored and you avoid the
+    # difference of nearly equal numbers and dividing by a small number
+    #  equation 74
+    rr = r/c
+    ss = s/c
+    
+    poly1_r = 2.0
+    poly1_s = 1.0
+    poly2_r = 6.0*rr - 2.0*ss
+    poly2_s = 2.0*rr + 2.0*ss
+    poly3_r = 12.0*rr*rr - 6.0*rr*ss + 2.0*ss*ss
+    poly3_s = -3.0*rr*rr + 4.0*rr*ss - 3.0*ss*ss
+    der_r = np.where(s <= 0., h*( -(2./3.)*poly2_r + (32./135.)*poly3_r + (4./9.)*alpha*(poly1_r - poly2_r + (4./15.)*poly3_r) - (2./9.)*beta*(poly2_r - (8./15.)*poly3_r)),
+                              evalPhi2p(r,alpha,beta,c,h)/(r + s + 1e-20) - 2.0*evalPhip(r,alpha,beta,c,h)/(r + s + 1e-20)**2 + 2.0*(evalPhi(r,alpha,beta,c,h) - evalPhi(s,alpha,beta,c,h))/(r + s + 1e-20)**3 )
+    der_s = np.where(s <= 0., h*( -(2./3.)*poly2_s + (32./135.)*poly3_s + (4./9.)*alpha*(poly1_s - poly2_s + (4./15.)*poly3_s) - (2./9.)*beta*(poly2_s - (8./15.)*poly3_s)),
+                              -evalPhip(r,alpha,beta,c,h)/(r + s + 1e-20)**2 + evalPhip(s,alpha,beta,c,h)/(r + s + 1e-20)**2 +2.0*(evalPhi(r,alpha,beta,c,h) - evalPhi(s,alpha,beta,c,h))/(r + s + 1e-20)**3 )
+    return (der_r, der_s)
 
 def reg1_s_characteristic(r, s, alpha, beta, c, h):
     """
@@ -212,6 +258,21 @@ def RS_fromXTreg1(rs, x, t, alpha, beta, c, h):
     value1 = x - (4./3.*r - 2./3.*s)*t - reg1_r_characteristic(r, s, alpha, beta, c, h)
     value2 = 2.0*t/3.0 - reg1_t(r, s, alpha, beta, c, h)
     return [value1, value2]
+
+def RS_fromXTreg1_jac(rs, x, t, alpha, beta, c, h):
+    """
+    Evaluate equations whose roots will give r and s from x and t
+    iterate on r,s to get both value1 and value2 to zero.
+    """
+    r = rs[0]
+    s = rs[1]
+    value1_r, value1_s = reg1_r_characteristic_der(r, s, alpha, beta, c, h)
+    value1_r = -(4./3.)*t - value1_r
+    value1_s = -(2./3.)*t - value1_s
+    value2_r, value2_s = reg1_t_der(r, s, alpha, beta, c, h)
+    value2_r = -value2_r
+    value2_s = -value2_s
+    return [[value1_r, value1_s],[value2_r, value2_s]]
 
 def FreeSurface_S(t, alpha, beta, c, h):
     """
@@ -265,23 +326,38 @@ def xt2rs(x, t, alpha, beta, c, h):
     """
     find the r and s characteristics that go through the point (x, t)
     """
+    Verbose=False
+
+    # time free surface starts moving.
+    time1 = -(2.0/3.0)*alpha*h/c
+    # print("free surf starts to move ", time1)
+    
     Smin = FreeSurface_S(t, alpha, beta, c, h)
- 
+    if Verbose:
+        print("Smin at free surf ", Smin)
+    
     # time region 2 reaches free surface
     time2 = -2.0*h*(1 + alpha/3.0 + beta)/c
- 
+    if Verbose:
+        print("reg 2 at free surf, reg 1 gone t = ", time2)
+    
     # find x position of free surface at time t (r1 = -Smin)
     x1 = -2.0*Smin*t + 0.5*evalPhi2p(-Smin,alpha,beta,c,h)
+    if Verbose:
+        print "free surface at t= %g is x = %g" %(t, x1)
     
     # find s value at region1/ region 2 boundary at time t
-    if t > time2:
+    if t >= time2:
         # in this case Region 2 extends to the free surface, s2 must be -1.5*c
         s2 = -1.5*c
     else:
-        # print "t > time2 search for s2, Smin ", Smin
+        if Verbose:
+            print "t < time2 = %g,  search for s2, Smin "%time2, (Smin)
         s2 = scipy.optimize.brentq(SXT2, Smin, 1.5*c, args=(t, alpha, beta, c, h)) 
     # Calculate x value at region 1/region 2 boundary
     x2 = -(4.0/3.0*s2 - c)*t + evalPhip(s2,alpha,beta,c,h)/(1.5*c + s2 + 1e-20) + (evalPhi(1.5*c,alpha,beta,c,h) - evalPhi(s2,alpha,beta,c,h))/(1.5*c + s2 + 1e-20 )**2
+    if Verbose:
+        print(" reg 1/2 boundary, x2, s2", x2, s2)
     
     # Calculate x value at region 2/region 3 boundary
     x3 = -c*t
@@ -290,43 +366,156 @@ def xt2rs(x, t, alpha, beta, c, h):
         # In region 3, initial conditions still hold
         r = 1.5*c
         s = 1.5*c
+        if Verbose:
+            print "region 3"
     elif (x >= x1):
         # outside free surface, set values to the free surface at this time
         r = -Smin
         s =  Smin
+        if Verbose:
+            print "region 0, outside free surface"
     elif x <= x2:
         # region 2, r = 1.5*c, s varies
         r = 1.5*c
         s = scipy.optimize.brentq(S_from_XT_reg2, Smin, 1.5*c, args=(x, t, alpha, beta, c, h))
+        if Verbose:
+            print "region 2"
+    else:
+        # find r and s in region 1
+        if (t > 0.0) and (t < time1) and (x <= h):
+            # iteration is sensitive to initial guess in this region
+            # start at t=0 and walk up to surrent time.
+            R_init = 1.5*x
+            S_init = R_init
+            sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, 0.0, alpha, beta, c, h))
+            R_init = sol.x[0]
+            S_init = sol.x[1]
+            numiter = min(int(t/5e-10+0.5),50)
+            for time in np.linspace(0., t, num=numiter)[1:]:
+                sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, time, alpha, beta, c, h))
+                R_init = sol.x[0]
+                S_init = sol.x[1]
+            r = R_init
+            s = S_init
+        else:
+            # get initial guess from bounding values, (r,s) is (-Smin, Smin) at x1, (1.5*c, s2) at x2
+            R_init = -Smin + (1.5*c + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
+            S_init =  Smin + (s2 + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
+            # print("R_init, S_init ", R_init, S_init)
+            sol1 = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+            # print("reg 1: sol1 ", sol1)
+            sol = sol1
+            
+            if sol1.success == False:
+                sol1 = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], jac=RS_fromXTreg1_jac, args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                # print("reg 1: sol1 ", sol1)
+                sol = sol1
+                
+                if sol1.success == False:
+                    R_init = -Smin + (1.5*c + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
+                    S_init = s2 + (Smin - s2)*(x - x2)/(x1 - x2)
+                    # print("R_init, S_init ", R_init, S_init)
+                    sol2 = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                    # print("reg 1: sol2 ", sol2)
+                    sol = sol2
+                    
+                    if sol2.success == False:
+                        sol2 = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], jac=RS_fromXTreg1_jac, args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                        # print("reg 1: sol2 ", sol2)
+                        sol = sol2
+                        
+                        if sol2.success == False:
+                            R_init = 1.5*c + (-Smin - 1.5*c)*(x - x2)/(x1 - x2)
+                            S_init = Smin + (s2 + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
+                            # print("R_init, S_init ", R_init, S_init)
+                            sol3 = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                            # print("reg 1: sol3 ", sol3)
+                            sol = sol3
+                            
+                            if sol3.success == False:
+                                sol3 = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], jac=RS_fromXTreg1_jac, args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                                # print("reg 1: sol3 ", sol3)
+                                sol = sol3
+                                
+                                if sol3.success == False:
+                                    R_init = 1.5*c + (-Smin - 1.5*c)*(x - x2)/(x1 - x2)
+                                    S_init = s2 + (Smin - s2)*(x - x2)/(x1 - x2)
+                                    # print("R_init, S_init ", R_init, S_init)
+                                    sol4 = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                                    # print("reg 1: sol4 ", sol4)
+                                    sol = sol4
+                                    if sol4.success == False:
+                                        sol4 = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], jac=RS_fromXTreg1_jac, args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
+                                        # print("reg 1: sol4 ", sol4)
+                                        sol = sol4
+                                        if sol4.success == False:
+                                            print("xt2rs: failed to converge for x = %g, t = %g"%(x,t))
+            r = sol.x[0]
+            s = sol.x[1]
+    
+    return r, s
+
+def xt2rs_init(x, t, alpha, beta, c, h, r_init, s_init):
+    """
+    find the r and s characteristics that go through the point (x, t)
+    """
+    Verbose=False
+    Smin = FreeSurface_S(t, alpha, beta, c, h)
+ 
+    # time region 2 reaches free surface
+    time2 = -2.0*h*(1 + alpha/3.0 + beta)/c
+ 
+    # find x position of free surface at time t (r1 = -Smin)
+    x1 = -2.0*Smin*t + 0.5*evalPhi2p(-Smin,alpha,beta,c,h)
+    if Verbose:
+        print "--------------"
+        print "Solve for x = %12.8g, t = %12.8g r_init = %12.8g, s_init = %12.8g" %(x, t, r_init, s_init)
+        print "free surface at t= %12.8g is x = %12.8g" %(t, x1)
+    
+    # find s value at region1/ region 2 boundary at time t
+    if t >= time2:
+        # in this case Region 2 extends to the free surface, s2 must be -1.5*c
+        s2 = -1.5*c
+    else:
+        if Verbose:
+            print "t < time2 = %g,  search for s2, Smin "%time2, (Smin)
+        s2 = scipy.optimize.brentq(SXT2, Smin, 1.5*c, args=(t, alpha, beta, c, h)) 
+    # Calculate x value at region 1/region 2 boundary
+    x2 = -(4.0/3.0*s2 - c)*t + evalPhip(s2,alpha,beta,c,h)/(1.5*c + s2 + 1e-20) + (evalPhi(1.5*c,alpha,beta,c,h) - evalPhi(s2,alpha,beta,c,h))/(1.5*c + s2 + 1e-20 )**2
+    
+    # Calculate x value at region 2/region 3 boundary
+    x3 = -c*t
+    if Verbose:
+        print "x2 = %12.8g  x3 = %12.8g" %(x2, x3)
+    
+    if (x <= x3):
+        # In region 3, initial conditions still hold
+        r = 1.5*c
+        s = 1.5*c
+        if Verbose:
+            print "region 3"
+    elif (x >= x1):
+        # outside free surface, set values to the free surface at this time
+        r = -Smin - 1000.*(x - x1)
+        s =  Smin + 1000.*(x - x1)
+        if Verbose:
+            print "outside surface"
+    elif x <= x2:
+        # region 2, r = 1.5*c, s varies
+        r = 1.5*c
+        s = scipy.optimize.brentq(S_from_XT_reg2, Smin, 1.5*c, args=(x, t, alpha, beta, c, h))
+        if Verbose:
+            print "region 2"
     else:
         # find r and s in region 1
         # get initial guess from bounding values, (r,s) is (-Smin, Smin) at x1, (1.5*c, s2) at x2
-        R_init = -Smin + (1.5*c + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
-        S_init =  Smin + (s2 + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
-        # print("R_init, S_init ", R_init, S_init)
+        R_init = r_init
+        S_init = s_init
+        if Verbose:
+            print("R_init, S_init ", R_init, S_init)
         sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
-        # print("reg 1: sol", sol)
-        if sol.success == False:
-            R_init = -Smin + (1.5*c + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
-            S_init = s2 + (Smin - s2)*(x - x2)/(x1 - x2)
-            # print("R_init, S_init ", R_init, S_init)
-            sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
-            # print("reg 1: sol", sol)
-            if sol.success == False:
-                R_init = 1.5*c + (-Smin - 1.5*c)*(x - x2)/(x1 - x2)
-                S_init = Smin + (s2 + Smin)*(x1 - x)**0.5/(x1 - x2)**0.5
-                # print("R_init, S_init ", R_init, S_init)
-                sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
-                # print("reg 1: sol", sol)
-                if sol.success == False:
-                    # print("xt2rs: failed to converge for x = %g, t = %g"%(x,t))
-                    R_init = 1.5*c + (-Smin - 1.5*c)*(x - x2)/(x1 - x2)
-                    S_init = s2 + (Smin - s2)*(x - x2)/(x1 - x2)
-                    # print("R_init, S_init ", R_init, S_init)
-                    sol = scipy.optimize.root(RS_fromXTreg1, [R_init, S_init], args=(x, t, alpha, beta, c, h), options={'maxfev':1000})
-                    # print("reg 1: sol", sol)
-                    if sol.success == False:
-                        print("xt2rs: failed to converge for x = %g, t = %g"%(x,t))
+        if Verbose:
+            print("reg 1: sol", sol)
         r = sol.x[0]
         s = sol.x[1]
     

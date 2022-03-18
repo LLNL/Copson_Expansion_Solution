@@ -17,6 +17,18 @@ import scipy.integrate
 import math
 from CopsonFuncs import *
 
+global rinit, sinit
+
+def velocity_init(x, t, alpha, beta, c, h):
+    """
+    find the particle velocity at x and t
+    """
+    global rinit, sinit
+    r, s = xt2rs_init(x, t, alpha, beta, c, h, rinit, sinit)
+    rinit = r
+    sinit = s
+    return r - s
+
 def makePlot(alpha, beta, FinalTime, filename):
    """
    make a plot of the characteristics for a given alpha, beta
@@ -43,9 +55,11 @@ def makePlot(alpha, beta, FinalTime, filename):
    bndy_time = np.append(bndy_time, FinalTime)
    bndy_xvals = np.append(bndy_xvals, x2)
    
-   # start the plot
-   plt.figure(num=1, figsize=(5,3.75)) #(6.0, 4.5)
-   plt.figure(num=2, figsize=(5,3.75))
+   # start the plots
+   fig1 = plt.figure(num=1, figsize=(5,3.75)) #(6.0, 4.5)
+   fig2 = plt.figure(num=2, figsize=(5,3.75))
+   fig3 = plt.figure(num=3, figsize=(5,3.75))
+   fig4 = plt.figure(num=4, figsize=(5,3.75))
 
    plt.figure(num=1)
    # put at end so it is on top
@@ -86,7 +100,7 @@ def makePlot(alpha, beta, FinalTime, filename):
       sxvals = np.append(sxvals,x2)
       LowerX = x2
 
-      # Lower X will get updated until we get to the last s characteristci in the surface layer
+      # Lower X will get updated until we get to the last s characteristic in the surface layer
 
       width = 0.5
       if s == 1.5:
@@ -183,19 +197,19 @@ def makePlot(alpha, beta, FinalTime, filename):
 
    if fractionA and fractionB:
       if alphaNum == 0:
-         plt.title( r'$\alpha = %d$, $\beta = -\frac{%d}{%d}$' % (alphaNum, betaNum, betaDenom))
+         TitleAB = r'$\alpha = %d$, $\beta = -\frac{%d}{%d}$' % (alphaNum, betaNum, betaDenom)
       else:
-         plt.title( r'$\alpha = -\frac{%d}{%d}$, $\beta = -\frac{%d}{%d}$' % (alphaNum, alphaDenom, betaNum, betaDenom))
+         TitleAB = r'$\alpha = -\frac{%d}{%d}$, $\beta = -\frac{%d}{%d}$' % (alphaNum, alphaDenom, betaNum, betaDenom)
    elif fractionA:
       if alphaNum == 0:
-         plt.title( r'$\alpha = %d$, $\beta = $ %0.3f' % (alphaNum, beta))
+         TitleAB = r'$\alpha = %d$, $\beta = $ %0.2f' % (alphaNum, beta)
       else:
-         plt.title( r'$\alpha = -\frac{%d}{%d}$, $\beta = $ %0.3f' % (alphaNum, alphaDenom, beta))
+         TitleAB = r'$\alpha = -\frac{%d}{%d}$, $\beta = $ %0.2f' % (alphaNum, alphaDenom, beta)
    elif fractionB:
-      plt.title( r'$\alpha = $ %0.3f, $\beta = -\frac{%d}{%d}$' % (alpha, betaNum, betaDenom))
+      TitleAB = r'$\alpha = $ %0.2f, $\beta = -\frac{%d}{%d}$' % (alpha, betaNum, betaDenom)
    else:
-      plt.title( r'$\alpha = $%0.3f, $\beta =$ %0.3f' % (alpha, beta))
-   # plt.title( r'Characteristics ($\alpha = $%0.3f, $\beta =$ %0.3f)' % (alpha, beta))
+      TitleAB = r'$\alpha = $%0.2f, $\beta =$ %0.2f' % (alpha, beta)
+   plt.title( TitleAB )
    ax = plt.gca()
    ttl = ax.title
    ttl.set_position([.5, 1.025])
@@ -207,17 +221,49 @@ def makePlot(alpha, beta, FinalTime, filename):
    plt.savefig(filename, format="pdf", dpi=1200)
    
    # Do streamlines starting from 1 -> 0, calculate starting point from r values like characteristics
-   plt.figure(2)
+   plt.figure(num=2)
    rvals = np.linspace(0.0, 1.5, num=N+1)
 
    plt.plot(bndy_time, bndy_xvals, color='g', lw=2.0) # add surface as a streamline
+   global rinit, sinit
+   count = 0
    for r in rvals[1:]:
       Xstart = reg1_r_characteristic(r, r, alpha, beta, 1.0, 1.0)
-      Stream_times = np.linspace(0.0, FinalTime, num=N2)
+      Stream_times = np.linspace(0.0, FinalTime, num=N2+1)
+      index = int(0.75*(N2 + 1) + 0.5)
       y0 = np.array([Xstart])
+      rinit = r
+      sinit = r
 
-      Stream_xvals = scipy.integrate.odeint(velocity, y0, Stream_times, args=(alpha, beta, 1.0,1.0))
+      Stream_xvals = scipy.integrate.odeint(velocity_init, y0, Stream_times, args=(alpha, beta, 1.0,1.0))
+      plt.figure(num=2)
       plt.plot(Stream_times, Stream_xvals, lw=width)
+      plt.figure(num=3)
+      StreamR = np.zeros(Stream_xvals.shape)
+      StreamS = np.zeros(Stream_xvals.shape)
+      rinit = r
+      sinit = r
+      for i in range(len(StreamR)):
+         StreamR[i], StreamS[i] = xt2rs_init(Stream_xvals[i], Stream_times[i], alpha, beta, 1., 1., rinit, sinit)
+         # if Stream_xvals[0] > 0.976 and Stream_xvals[0] < 0.985:
+         #    print "i %4d r %12.8g s %12.8g x %12.8g t %12.8g"% (i, StreamR[i], StreamS[i], Stream_xvals[i], Stream_times[i])
+         rinit = StreamR[i]
+         sinit = StreamS[i]
+      plt.plot(Stream_times, (StreamR - StreamS), lw=width, label='x = %g'%Stream_xvals[0])
+      ax = plt.gca()
+      x0label = "%4.2f" % Stream_xvals[0]
+      if count < 4:
+         ax.text(Stream_times[index], (StreamR[index] - StreamS[index]), x0label,verticalalignment='top')
+      plt.figure(num=4)
+      plt.plot(Stream_times, 0.6*((StreamR + StreamS)/3.)**5, lw=width, label='x = %g'%Stream_xvals[0])
+      ax = plt.gca()
+      if count < 4:
+         ax.text(Stream_times[index], 0.6*((StreamR[index] + StreamS[index])/3.)**5, x0label)
+      count += 1
+      # plt.figure(5)
+      # plt.plot(Stream_times, StreamR[:], lw=width, label='x = %g'%Stream_xvals[0])
+      # plt.figure(6)
+      # plt.plot(Stream_times, StreamS[:], lw=width, label='x = %g'%Stream_xvals[0])
 
    xinit = np.linspace(0, LowerX, num=3*N/2)
    for i in range(1,3*N/2):
@@ -225,28 +271,32 @@ def makePlot(alpha, beta, FinalTime, filename):
       Stream_times = np.linspace(0.0, FinalTime, num=N2)
       y0 = np.array([Xstart])
 
+      # generate x values for teh streamline
       Stream_xvals = scipy.integrate.odeint(velocity, y0, Stream_times, args=(alpha, beta, 1.0,1.0))
-      plt.figure(2)
+      plt.figure(num=2)
       plt.plot(Stream_times, Stream_xvals, lw=width)
+      plt.figure(num=3)
+      # calculate the r and s values on the streamline,
+      # for robustness use variant that uses the last value of r,s as initial guesses
+      StreamR = np.zeros(Stream_xvals.shape)
+      StreamS = np.zeros(Stream_xvals.shape)
+      rinit = r
+      sinit = r
+      for i in range(len(StreamR)):
+         StreamR[i], StreamS[i] = xt2rs_init(Stream_xvals[i], Stream_times[i], alpha, beta, 1., 1., rinit, sinit)
+         rinit = StreamR[i]
+         sinit = StreamS[i]
+      # plot the velocity on the streamline
+      plt.plot(Stream_times, (StreamR - StreamS), lw=width, label='x = %g'%Stream_xvals[0,0])
+      plt.figure(num=4)
+      # plot the pressure on the streamline
+      plt.plot(Stream_times, 0.6*((StreamR + StreamS)/3.)**5, lw=width, label='x = %g'%Stream_xvals[0,0])
+   plt.figure(num=2)
    plt.xlabel(r'$t\ (a/h)$')
    plt.ylabel(r'$x/h$')
    plt.xlim((0.,FinalTime))
    plt.ylim((LowerX,bndy_xvals[-1]))
-   if fractionA and fractionB:
-      if alphaNum == 0:
-         plt.title( r'Streamlines ($\alpha = %d$, $\beta = -\frac{%d}{%d}$)' % (alphaNum, betaNum, betaDenom))
-      else:
-         plt.title( r'Streamlines ($\alpha = -\frac{%d}{%d}$, $\beta = -\frac{%d}{%d}$)' % (alphaNum, alphaDenom, betaNum, betaDenom))
-   elif fractionA:
-      if alphaNum == 0:
-         plt.title( r'Streamlines ($\alpha = %d$, $\beta = $ %0.3f)' % (alphaNum, beta))
-      else:
-         plt.title( r'Streamlines ($\alpha = -\frac{%d}{%d}$, $\beta = $ %0.3f)' % (alphaNum, alphaDenom, beta))
-   elif fractionB:
-      plt.title( r'Streamlines ($\alpha = $ %0.3f, $\beta = -\frac{%d}{%d}$)' % (alpha, betaNum, betaDenom))
-   else:
-      plt.title( r'Streamlines ($\alpha = $%0.3f, $\beta =$ %0.3f)' % (alpha, beta))
-   # plt.title( r'Streamlines ($\alpha = $%0.3f, $\beta =$ %0.3f)' % (alpha, beta))
+   plt.title( 'Streamlines ' + TitleAB)
    ax = plt.gca()
    ttl = ax.title
    ttl.set_position([.5, 1.025])
@@ -256,25 +306,60 @@ def makePlot(alpha, beta, FinalTime, filename):
    name = filename[0:-4]+"streamline"+filename[-4:]
    plt.savefig(name, format="pdf", dpi=1200)
 
+   plt.figure(num=3)
+   plt.xlabel(r'$t\ (a/h)$')
+   plt.ylabel(r'$\dot{x}/h$')
+   plt.xlim((0.,FinalTime))
+   # plt.ylim((LowerX,bndy_xvals[-1]))
+   plt.title( 'Velocity ' + TitleAB)
+   ax = plt.gca()
+   ttl = ax.title
+   ttl.set_position([.5, 1.025])
+   # ax.legend(loc='lower right')
+   ax.xaxis.set_minor_locator(AutoMinorLocator())
+   ax.yaxis.set_minor_locator(AutoMinorLocator())
+   # fig3.set_size_inches(3.5,2.75)
+   plt.tight_layout()
+   name = filename[0:-4]+"streamline_Vel"+filename[-4:]
+   plt.savefig(name, format="pdf", dpi=1200)
+   
+   plt.figure(num=4)
+   plt.xlabel(r'$t\ (a/h)$')
+   plt.ylabel(r'$p\ (a^5)$')
+   plt.xlim((0.,FinalTime))
+   plt.ylim((1e-7,1.e0))
+   plt.title( 'Pressure ' + TitleAB)
+   ax = plt.gca()
+   ttl = ax.title
+   ttl.set_position([.5, 1.025])
+   ax.set_yscale('log')
+   # ax.legend(loc='lower right')
+   # ax.xaxis.set_minor_locator(AutoMinorLocator())
+   # ax.yaxis.set_minor_locator(AutoMinorLocator())
+   # fig4.set_size_inches(3.5,2.75)
+   plt.tight_layout()
+   name = filename[0:-4]+"streamline_Pressure"+filename[-4:]
+   plt.savefig(name, format="pdf", dpi=1200)
+
    plt.show()
 
 alpha =  -1.0/3.0
 beta  = -17.0/9.0
 
-makePlot(alpha,beta, 2.0, "Char_test_A0.333_B1.889.pdf")
+makePlot(alpha,beta, 3.0, "Char_A0_333_B1_889.pdf")
 # quit()
 alpha = -0.
 beta = -1.7
 
-makePlot(alpha,beta, 3.0, "Char_A0.0_B1.7.pdf")
+makePlot(alpha,beta, 3.0, "Char_A0_B1_7.pdf")
 
 alpha = -0.0
 beta = -2.95
 
-makePlot(alpha,beta, 3.0, "Char_A0.0_B2.95.pdf")
+makePlot(alpha,beta, 3.0, "Char_A0_B2_95.pdf")
 
 alpha = -0.95
 beta = -1.05
 
-makePlot(alpha,beta, 3.0, "Char_A0.95_B1.0.pdf")
+makePlot(alpha,beta, 3.0, "Char_A0_95_B1_05.pdf")
 quit()
